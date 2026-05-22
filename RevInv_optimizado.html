@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Informe Ejecutivo — Toma de Inventario</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --navy:#0D1B2A;--navy2:#1a2c40;--gold:#C9922A;--gold2:#E8B84B;
+  --red:#C0392B;--green:#1A7A4A;--blue:#1A4A8A;
+  --bg:#F7F8FA;--white:#ffffff;--mid:#E8EDF2;--text:#1A1A1A;--sub:#6B7280;--border:#D1D9E0;
+  --ef-opt:#1A7A4A;--ef-bien:#2980B9;--ef-alerta:#B7700A;--ef-crit:#C0392B;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+/* UPLOAD */
+#upload-screen{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.up-eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);opacity:.8;margin-bottom:28px;}
+.up-title{font-size:36px;font-weight:700;color:#fff;text-align:center;line-height:1.2;margin-bottom:8px;}
+.up-sub{color:rgba(255,255,255,.45);font-size:14px;margin-bottom:40px;text-align:center;}
+.drop-zone{width:480px;max-width:92vw;border:2px dashed rgba(201,146,42,.45);border-radius:12px;background:rgba(201,146,42,.05);padding:44px 28px;text-align:center;cursor:pointer;transition:all .2s;}
+.drop-zone:hover,.drop-zone.over{border-color:var(--gold);background:rgba(201,146,42,.1);}
+.drop-icon{font-size:44px;margin-bottom:12px;}
+.drop-label{color:#fff;font-size:15px;margin-bottom:5px;}
+.drop-hint{color:rgba(255,255,255,.3);font-size:12px;}
+.drop-zone input{display:none;}
+.btn-sel{margin-top:20px;display:inline-block;background:var(--gold);color:var(--navy);font-weight:600;font-size:13px;padding:11px 32px;border-radius:8px;cursor:pointer;border:none;transition:background .2s;}
+.btn-sel:hover{background:var(--gold2);}
+#up-status{color:var(--gold2);margin-top:12px;font-size:12px;min-height:18px;text-align:center;}
+#progress-bar{width:480px;max-width:92vw;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:8px;display:none;}
+#progress-fill{height:100%;background:var(--gold);border-radius:2px;width:0%;transition:width .3s;}
+.col-mapper{display:none;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:22px 24px;margin-top:20px;width:580px;max-width:92vw;}
+.col-mapper h3{color:var(--gold);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;}
+.col-map-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.col-map-item label{font-size:11px;color:rgba(255,255,255,.45);display:block;margin-bottom:3px;}
+.col-map-item select{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;padding:6px 9px;border-radius:5px;font-size:12px;}
+.col-map-item select option{background:#1a2a3a;color:#fff;}
+.btn-generate{margin-top:16px;width:100%;background:var(--gold);color:var(--navy);font-weight:600;font-size:13px;padding:12px;border-radius:8px;cursor:pointer;border:none;transition:background .2s;}
+.btn-generate:hover{background:var(--gold2);}
+
+/* REPORT */
+#report{display:none;}
+.rpt-header{background:var(--navy);color:#fff;padding:44px 56px 38px;position:relative;overflow:hidden;}
+.rpt-header::before{content:'';position:absolute;right:-80px;top:-80px;width:300px;height:300px;border-radius:50%;border:60px solid rgba(201,146,42,.06);}
+.rpt-badge{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:14px;}
+.rpt-title{font-size:32px;font-weight:700;line-height:1.15;margin-bottom:6px;}
+.rpt-subtitle{font-size:14px;color:rgba(255,255,255,.5);margin-bottom:28px;}
+.rpt-meta{display:flex;gap:36px;flex-wrap:wrap;}
+.rpt-meta-item label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.3);display:block;margin-bottom:3px;}
+.rpt-meta-item span{font-size:13px;color:rgba(255,255,255,.8);font-weight:500;}
+.toolbar{background:var(--navy2);padding:10px 56px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.toolbar-left{color:rgba(255,255,255,.35);font-size:12px;}
+.tbar-btns{display:flex;gap:8px;}
+.btn-new{background:transparent;border:1px solid rgba(255,255,255,.18);color:rgba(255,255,255,.55);padding:8px 16px;border-radius:6px;font-size:12px;cursor:pointer;transition:all .2s;}
+.btn-new:hover{border-color:var(--gold);color:var(--gold);}
+.btn-dl{background:var(--gold);color:var(--navy);padding:8px 20px;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;transition:background .2s;}
+.btn-dl:hover{background:var(--gold2);}
+.btn-dl-pdf{background:#b03a2e;color:#fff;padding:8px 20px;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;transition:background .2s;}
+.btn-dl-pdf:hover{background:#96281b;}
+/* TAMAÑO CARTA — contenido del informe ajustado a US Letter (8.5in / 816px) */
+.rpt-body{max-width:816px;margin:0 auto;padding:40px 36px 56px;background:var(--white);}
+
+/* SECTIONS */
+.sec{margin-bottom:40px;}
+.sec-title{font-size:18px;font-weight:600;color:var(--navy);margin-bottom:4px;display:flex;align-items:center;gap:9px;}
+.sec-title::before{content:'';width:3px;height:20px;background:var(--gold);border-radius:2px;flex-shrink:0;}
+.sec-sub{color:var(--sub);font-size:12px;margin-bottom:18px;margin-left:12px;}
+hr.div{border:none;border-top:1px solid var(--mid);margin:40px 0;}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.kpi-card{background:var(--white);border-radius:10px;padding:18px 16px;border-top:3px solid var(--gold);box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.kpi-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-bottom:8px;}
+.kpi-value{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+.kpi-value.red{color:var(--red);}
+.kpi-value.green{color:var(--green);}
+.kpi-value.orange{color:var(--gold);}
+.kpi-value.blue{color:var(--blue);}
+.kpi-note{font-size:11px;color:var(--sub);}
+
+/* EFECTIVIDAD GAUGE */
+.gauge-row{display:flex;flex-direction:column;gap:16px;margin-bottom:40px;}
+.gauge-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.gauge-card{background:var(--white);border-radius:10px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.gauge-lbl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-bottom:12px;}
+.gauge-big{font-size:44px;font-weight:700;margin-bottom:4px;}
+.gauge-bar-wrap{height:14px;background:var(--mid);border-radius:7px;overflow:hidden;margin-bottom:8px;}
+.gauge-bar-fill{height:100%;border-radius:7px;}
+.gauge-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);}
+.gauge-formula{font-size:11px;color:var(--sub);margin-top:7px;}
+/* Niveles de efectividad — pill */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px;margin-top:7px;}
+.pill-opt{background:#EEF8F2;color:var(--ef-opt);}
+.pill-bien{background:#EBF3FB;color:var(--ef-bien);}
+.pill-alerta{background:#FFF8EC;color:var(--ef-alerta);}
+.pill-crit{background:#FFF0EE;color:var(--ef-crit);}
+/* Niveles de efectividad — tabla de niveles */
+.ef-niveles{background:var(--white);border-radius:10px;padding:16px 20px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;}
+.ef-niveles-title{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-bottom:10px;}
+.ef-niveles-grid{display:flex;gap:10px;flex-wrap:wrap;}
+.ef-nivel-item{display:flex;align-items:center;gap:7px;font-size:12px;}
+.ef-nivel-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.ef-nivel-dot.opt{background:var(--ef-opt);}
+.ef-nivel-dot.bien{background:var(--ef-bien);}
+.ef-nivel-dot.alerta{background:var(--ef-alerta);}
+.ef-nivel-dot.crit{background:var(--ef-crit);}
+
+/* ALMACENES */
+.alm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:40px;}
+.alm-card{background:var(--white);border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.alm-name{font-size:17px;font-weight:700;margin-bottom:2px;}
+.alm-sub{font-size:11px;color:var(--sub);margin-bottom:12px;}
+.alm-ef-lbl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);margin-bottom:4px;}
+.alm-bar{height:8px;background:var(--mid);border-radius:4px;overflow:hidden;margin-bottom:4px;}
+.alm-bar-fill{height:100%;border-radius:4px;}
+.alm-pct{font-size:22px;font-weight:700;}
+.alm-stats{display:flex;justify-content:space-between;margin-top:10px;border-top:1px solid var(--mid);padding-top:9px;}
+.alm-stat-item{text-align:center;}
+.alm-stat-item .v{font-weight:600;font-size:12px;color:var(--navy);}
+.alm-stat-item .l{font-size:10px;color:var(--sub);}
+
+/* ALERT BOX */
+.alert-box{background:#FFF7F7;border:1px solid #F5C6C2;border-radius:10px;padding:16px 18px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-start;}
+.al-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.al-title{font-weight:600;color:var(--red);font-size:13px;margin-bottom:3px;}
+.al-text{font-size:12px;color:#7A3333;line-height:1.6;}
+.al-text strong{color:#5A2020;}
+
+/* TABLES */
+.table-wrap{background:var(--white);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:40px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:var(--navy);}
+thead th{color:#fff;padding:10px 13px;text-align:left;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;font-weight:500;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--mid);}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(201,146,42,.03);}
+tbody td{padding:10px 13px;color:var(--text);}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;}
+.r1{background:var(--gold);color:var(--navy);}
+.r2{background:#C8C8C8;color:#333;}
+.r3{background:#C6956A;color:#fff;}
+.rn{background:var(--mid);color:var(--sub);}
+.bar-mini{height:4px;background:var(--mid);border-radius:3px;margin-top:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;background:var(--gold);}
+/* Regla optimizador: valores monetarios positivos = AZUL VIBRANTE, negativos = ROJO FUERTE */
+.pos{color:var(--blue);font-weight:600;}
+.neg{color:var(--red);font-weight:600;}
+.lote-chip{background:var(--navy);color:var(--gold2);font-size:10px;padding:2px 6px;border-radius:4px;font-family:monospace;}
+.row-mismatch{background:#FFF8F8!important;}
+
+/* TOP DIFERENCIAS NETAS */
+.top-dif-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.top-dif-panel{background:var(--white);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.top-dif-header{padding:12px 16px;display:flex;align-items:center;gap:9px;}
+.top-dif-header.faltante{background:#FFF0EE;border-bottom:2px solid var(--red);}
+.top-dif-header.sobrante{background:#EBF3FB;border-bottom:2px solid var(--blue);}
+.top-dif-icon{font-size:16px;}
+.top-dif-title{font-weight:700;font-size:13px;}
+.top-dif-title.faltante{color:var(--red);}
+.top-dif-title.sobrante{color:var(--blue);}
+.top-dif-table{width:100%;border-collapse:collapse;font-size:12px;}
+.top-dif-table thead tr{background:var(--navy);}
+.top-dif-table thead th{color:#fff;padding:8px 11px;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;font-weight:500;white-space:nowrap;}
+.top-dif-table tbody tr{border-bottom:1px solid var(--mid);}
+.top-dif-table tbody tr:last-child{border-bottom:none;}
+.top-dif-table tbody td{padding:8px 11px;}
+.top-dif-footer{background:var(--bg);border-top:1px solid var(--mid);padding:9px 13px;display:flex;justify-content:space-between;align-items:center;}
+.tdf-label{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--sub);}
+.tdf-val{font-weight:700;font-size:13px;}
+.tdf-val.faltante{color:var(--red);}
+.tdf-val.sobrante{color:var(--blue);}
+
+/* CONCENTRACION */
+.concentracion-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;}
+.conc-card{background:var(--white);border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-top:3px solid var(--blue);}
+.conc-card.warn{border-top-color:var(--gold);}
+.conc-card.crit{border-top-color:var(--red);}
+.conc-label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--sub);margin-bottom:6px;}
+.conc-val{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+.conc-note{font-size:11px;color:var(--sub);line-height:1.5;}
+
+/* INSIGHTS */
+.insights-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:40px;}
+.ins-card{background:var(--white);border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:3px solid var(--gold);}
+.ins-card.red{border-left-color:var(--red);}
+.ins-card.blue{border-left-color:var(--blue);}
+.ins-card.green{border-left-color:var(--green);}
+.ins-icon{font-size:20px;margin-bottom:8px;}
+.ins-title{font-weight:600;font-size:13px;color:var(--navy);margin-bottom:5px;}
+.ins-text{font-size:12px;color:var(--sub);line-height:1.6;}
+.ins-text strong{color:var(--navy);}
+
+/* PLAN */
+.plan-phase{background:var(--white);border-radius:10px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.plan-header{padding:14px 18px;display:flex;align-items:center;gap:12px;background:var(--navy);color:#fff;}
+.plan-num{width:30px;height:30px;border-radius:50%;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+.plan-title{font-weight:600;font-size:14px;}
+.plan-meta{margin-left:auto;font-size:11px;color:rgba(255,255,255,.4);}
+.plan-body{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.act{background:var(--bg);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--sub);line-height:1.5;}
+.act strong{color:var(--navy);display:block;margin-bottom:2px;}
+.act .own{font-size:10px;margin-top:4px;color:var(--gold);font-weight:600;}
+
+/* COMPROMISO */
+.compromiso{background:var(--navy);border-radius:12px;padding:38px;color:#fff;margin-bottom:40px;position:relative;overflow:hidden;}
+.compromiso::before{content:'';position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;border:30px solid rgba(201,146,42,.08);}
+.comp-title{font-size:22px;font-weight:700;color:var(--gold);margin-bottom:5px;}
+.comp-sub{color:rgba(255,255,255,.45);font-size:12px;margin-bottom:24px;}
+.comp-obj{display:flex;align-items:flex-start;gap:8px;margin-bottom:9px;font-size:12px;color:rgba(255,255,255,.75);}
+.comp-obj::before{content:'✓';color:var(--gold);font-weight:700;flex-shrink:0;}
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:26px;}
+.comp-col label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.3);display:block;margin-bottom:28px;}
+.firma-line{border-bottom:1px solid rgba(255,255,255,.18);margin-bottom:6px;height:34px;}
+.firma-name{font-size:11px;color:rgba(255,255,255,.35);}
+.rpt-footer{background:var(--navy2);padding:16px 56px;display:flex;justify-content:space-between;align-items:center;}
+.footer-l{font-size:11px;color:rgba(255,255,255,.22);}
+.footer-r{color:var(--gold);font-size:11px;letter-spacing:2.5px;}
+
+/* PDF LOADING */
+#pdf-loading{display:none;position:fixed;inset:0;background:rgba(13,27,42,.88);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+#pdf-loading.active{display:flex;}
+.pdf-spinner{width:44px;height:44px;border:3px solid rgba(201,146,42,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.pdf-msg{color:#fff;font-size:14px;}
+
+/* RESULTADO INVENTARIO — badge especial. Sobrante en AZUL (regla optimizador) */
+.resultado-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;margin-top:6px;}
+.resultado-badge.positivo{background:#EBF3FB;color:var(--blue);border:1px solid #b0c4d8;}
+.resultado-badge.negativo{background:#FFF0EE;color:var(--red);border:1px solid #f5c6c2;}
+.resultado-badge.neutro{background:#F0F4F8;color:var(--sub);border:1px solid #c8d2dc;}
+
+@media(max-width:768px){
+  .kpi-grid{grid-template-columns:1fr 1fr;}
+  .alm-grid{grid-template-columns:1fr;}
+  .gauge-cards{grid-template-columns:1fr;}
+  .insights-grid{grid-template-columns:1fr;}
+  .comp-grid{grid-template-columns:1fr;}
+  .plan-body{grid-template-columns:1fr;}
+  .top-dif-grid{grid-template-columns:1fr;}
+  .concentracion-grid{grid-template-columns:1fr 1fr;}
+  .rpt-header{padding:32px 24px 28px;}
+  .toolbar{padding:10px 24px;}
+  .rpt-body{padding:32px 20px 48px;}
+  .rpt-footer{padding:14px 24px;}
+  .rpt-title{font-size:26px;}
+  .rpt-meta{gap:18px;}
+}
+@media(max-width:480px){
+  .rpt-header{padding:24px 16px;}
+  .rpt-title{font-size:22px;line-height:1.2;}
+  .rpt-subtitle{font-size:13px;margin-bottom:16px;}
+  .rpt-meta{gap:14px;}
+  .toolbar{padding:8px 16px;gap:6px;}
+  .tbar-btns{flex-wrap:wrap;justify-content:flex-end;}
+  .btn-new,.btn-dl,.btn-dl-pdf{padding:7px 12px;font-size:11px;}
+  .rpt-body{padding:24px 14px 40px;}
+  .sec-title{font-size:16px;}
+  .kpi-grid{grid-template-columns:1fr 1fr;gap:8px;}
+  .kpi-card{padding:14px 12px;}
+  .kpi-value{font-size:18px;}
+  .gauge-card{padding:18px;}
+  .gauge-big{font-size:34px;}
+  .concentracion-grid{grid-template-columns:1fr;}
+  .table-wrap{overflow-x:auto;}
+  table{font-size:11px;}
+  thead th,tbody td{padding:8px 9px;}
+  .compromiso{padding:24px 18px;}
+  .comp-title{font-size:18px;}
+  .rpt-footer{padding:12px 16px;font-size:10px;}
+  .ef-niveles-grid{flex-direction:column;gap:6px;}
+}
+/* TAMAÑO CARTA — Impresión y export PDF/Word */
+@page{
+  size:letter portrait;
+  margin:0.6in;
+}
+@media print{
+  body{background:#fff;}
+  #upload-screen,.toolbar,#pdf-loading,.tbar-btns{display:none!important;}
+  .rpt-header{padding:24px 32px 20px;page-break-after:avoid;}
+  .rpt-body{max-width:100%;padding:18px 24px 24px;}
+  .sec{page-break-inside:avoid;margin-bottom:22px;}
+  .plan-phase,.compromiso,.alert-box,.kpi-card,.alm-card,.conc-card,.ins-card,.gauge-card,.table-wrap,.top-dif-panel{page-break-inside:avoid;}
+  hr.div{page-break-after:auto;margin:20px 0;}
+  .rpt-footer{padding:10px 32px;}
+}
+</style>
+</head>
+<body>
+
+<div id="pdf-loading">
+  <div class="pdf-spinner"></div>
+  <div class="pdf-msg">Generando PDF…</div>
+</div>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="up-eyebrow">Sistema de Auditoría Corporativa de Inventario</div>
+  <div class="up-title">Informe Ejecutivo<br>de Toma Física</div>
+  <div class="up-sub">Suba el archivo Excel para generar el análisis completo</div>
+  <div class="drop-zone" id="drop-zone">
+    <div class="drop-icon">📊</div>
+    <div class="drop-label">Arrastre su archivo Excel aquí</div>
+    <div class="drop-hint">Formatos: .xlsx · .xls</div>
+    <input type="file" id="file-input" accept=".xlsx,.xls">
+    <br><br>
+    <button class="btn-sel" onclick="document.getElementById('file-input').click()">Seleccionar Archivo</button>
+  </div>
+  <div id="up-status"></div>
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+  <div class="col-mapper" id="col-mapper">
+    <h3>⚙ Mapeo de Columnas</h3>
+    <p style="color:rgba(255,255,255,.4);font-size:12px;margin-bottom:14px">Seleccione cuál columna del archivo corresponde a cada campo requerido:</p>
+    <div class="col-map-grid" id="col-map-grid"></div>
+    <button class="btn-generate" onclick="generateReport()">Generar Informe</button>
+  </div>
+</div>
+
+<!-- REPORT -->
+<div id="report">
+  <div class="rpt-header">
+    <div class="rpt-badge">▸ Informe Ejecutivo Corporativo — Auditoría de Inventario</div>
+    <div class="rpt-title" id="h-title">Toma Física de Inventario</div>
+    <div class="rpt-subtitle" id="h-sub">—</div>
+    <div class="rpt-meta">
+      <div class="rpt-meta-item"><label>Centro</label><span id="m-centro">—</span></div>
+      <div class="rpt-meta-item"><label>Referencia</label><span id="m-ref">—</span></div>
+      <div class="rpt-meta-item"><label>Fecha de Toma</label><span id="m-fecha">—</span></div>
+      <div class="rpt-meta-item"><label>Total de Líneas</label><span id="m-lineas">—</span></div>
+      <div class="rpt-meta-item"><label>Almacenes</label><span id="m-alms">—</span></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-left">📁 <span id="tb-file">—</span></div>
+    <div class="tbar-btns">
+      <button class="btn-new" onclick="resetApp()">↩ Nuevo Archivo</button>
+      <button class="btn-dl" onclick="downloadWord()">⬇ Word</button>
+      <button class="btn-dl-pdf" onclick="downloadPDF()">⬇ PDF</button>
+    </div>
+  </div>
+
+  <div class="rpt-body">
+
+    <div class="sec">
+      <div class="sec-title">Indicadores Clave de Desempeño</div>
+      <div class="sec-sub">Vista consolidada de existencias teóricas vs. conteo físico</div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </div>
+
+    <div class="gauge-row" id="gauge-row"></div>
+
+    <hr class="div">
+
+    <div class="sec">
+      <div class="sec-title">Puntos Críticos Detectados</div>
+      <div class="sec-sub">Focos de mayor impacto en la exactitud del inventario</div>
+      <div id="criticos"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Efectividad por Almacén</div>
+      <div class="sec-sub">Desempeño individual por punto de almacenamiento</div>
+      <div class="alm-grid" id="alm-grid"></div>
+    </div>
+
+    <hr class="div">
+
+    <div class="sec">
+      <div class="sec-title">Top Grupos de Materiales — Mayor Impacto</div>
+      <div class="sec-sub">Clasificación por diferencia neta en valor ($) — orden de mayor a menor</div>
+      <div class="table-wrap"><table id="tbl-grupos"></table></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Top Códigos — Mayor Diferencia en Valor</div>
+      <div class="sec-sub">Códigos con diferencia real de cantidad — orden de mayor a menor impacto (se omiten códigos con solo redondeo en $)</div>
+      <div class="table-wrap"><table id="tbl-codigos"></table></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Top Códigos con Lote — Diferencias Críticas</div>
+      <div class="sec-sub">Materiales con control de lote y diferencia ≠ 0 — orden de mayor a menor en importe</div>
+      <div class="alert-box" style="margin-bottom:16px">
+        <div class="al-icon">⚠️</div>
+        <div>
+          <div class="al-title">Problema Sistémico: Falta de Abastecimiento Correcto por Lote</div>
+          <div class="al-text">El patrón recurrente detectado muestra que el mismo código presenta <strong>sobrantes en un lote y faltantes en otro</strong>. No es pérdida real de producto — el error radica en que el sistema registra el stock bajo un número de lote distinto al que físicamente ingresó o se almacenó. Origen: capturas incorrectas en recepción o transferencias internas sin documentación de lote.</div>
+        </div>
+      </div>
+      <div class="table-wrap"><table id="tbl-lotes"></table></div>
+    </div>
+
+    <div class="sec" style="margin-bottom:40px">
+      <div class="sec-title">Top Diferencias Netas — Faltantes y Sobrantes</div>
+      <div class="sec-sub">Materiales con mayor diferencia neta real — orden de mayor a menor importe</div>
+      <div class="top-dif-grid" id="top-dif-grid"></div>
+    </div>
+
+    <hr class="div">
+
+    <div class="sec">
+      <div class="sec-title">Insights Estratégicos</div>
+      <div class="sec-sub">Hallazgos clave del equipo de auditoría y logística corporativa</div>
+      <div class="insights-grid" id="insights-grid"></div>
+    </div>
+
+    <div class="sec" id="sec-concentracion">
+      <div class="sec-title">Análisis de Concentración y Riesgo</div>
+      <div class="sec-sub">Distribución del impacto económico, pareto de diferencias y exposición por almacén</div>
+      <div class="concentracion-grid" id="concentracion-grid"></div>
+      <div class="table-wrap" style="margin-top:0"><table id="tbl-pareto"></table></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">Plan de Acción y Mejora</div>
+      <div class="sec-sub">Hoja de ruta estructurada para elevar la efectividad de inventario</div>
+      <div id="plan-wrap"></div>
+    </div>
+
+    <div class="compromiso" id="comp-section">
+      <div class="comp-title">Carta de Compromiso Gerencial</div>
+      <div class="comp-sub" id="comp-sub">—</div>
+      <div id="comp-objetivos"></div>
+      <div class="comp-grid">
+        <div class="comp-col">
+          <label>Gerente de Sucursal / Responsable Ejecutivo</label>
+          <div class="firma-line"></div><div class="firma-name">Nombre y Firma</div>
+          <br><div class="firma-line" style="width:55%"></div><div class="firma-name">Fecha de Compromiso</div>
+        </div>
+        <div class="comp-col">
+          <label>Encargado de Almacén / Responsable Operativo</label>
+          <div class="firma-line"></div><div class="firma-name">Nombre y Firma</div>
+          <br><div class="firma-line" style="width:55%"></div><div class="firma-name">Fecha de Compromiso</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="rpt-footer">
+    <div class="footer-l">Informe Ejecutivo de Inventario — Uso Interno Confidencial</div>
+    <div class="footer-r" id="footer-id">INVENTARIO</div>
+  </div>
+</div>
+
+<script>
+// ─── GLOBALS ─────────────────────────────────────────────────────────────────
+let RAW_ROWS=[];
+let COLS={};
+let FILENAME='';
+
+// ─── COLUMN ALIAS MAP ────────────────────────────────────────────────────────
+const FIELD_ALIASES={
+  almacen:  ['almacen','almacén','warehouse','bodega','whs'],
+  gpo:      ['gpo materiales','grupo mater','material group','categoria','categoría','category','familia'],
+  cod:      ['codigo de material','código de material','material number','sku','part no','item code','codigo mat'],
+  desc:     ['descripcion del material','descripción del material','description','nombre material','item description','descripcion mat'],
+  lote:     ['lote','batch','lot number','numero de lote','num lote','no. lote','nro lote','no lote','número de lote','lote/no serie','batch no','no. de lote'],
+  exist:    ['existencia teorica','existencia teórica','stock teorico','stock teórico','qty on hand','cantidad teorica','theoretical','saldo sistema'],
+  contada:  ['cantidad contada','qty counted','conteo fisico','conteo físico','counted quantity','fisico','físico'],
+  diffQ:    ['diferencia en cantidad','qty difference','diff cantidad','diferencia cant'],
+  diffV:    ['diferencia en valores','value difference','diff valor','diferencia valor','importe diferencia'],
+  valExist: ['valor de la existencia teorica','valor exist','value on hand','importe teorico','valor teórico','valor teorico'],
+  valCont:  ['valor de la cantidad contada','valor contado','value counted','importe contado'],
+  fecha:    ['fecha del documento','fecha doc','document date','fecha toma','posting date','fecha'],
+  centro:   ['centro','plant','center','sucursal','tienda'],
+  ref:      ['Numero de inventario','inventory ref','ref inventario','numero de inventario','document number'],
+};
+const REQUIRED_FIELDS=['exist','diffQ','diffV'];
+
+// ─── DRAG & DROP ──────────────────────────────────────────────────────────────
+const dropZone=document.getElementById('drop-zone');
+const fileInput=document.getElementById('file-input');
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('over');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('over'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('over');handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',e=>handleFile(e.target.files[0]));
+
+function setStatus(msg){document.getElementById('up-status').textContent=msg;}
+function setProgress(p){
+  document.getElementById('progress-bar').style.display='block';
+  document.getElementById('progress-fill').style.width=p+'%';
+}
+function resetApp(){
+  document.getElementById('upload-screen').style.display='flex';
+  document.getElementById('report').style.display='none';
+  document.getElementById('col-mapper').style.display='none';
+  setStatus('');setProgress(0);
+  document.getElementById('progress-bar').style.display='none';
+  fileInput.value='';RAW_ROWS=[];COLS={};FILENAME='';
+}
+
+// ─── FILE HANDLER ─────────────────────────────────────────────────────────────
+function handleFile(file){
+  if(!file)return;
+  if(!file.name.match(/\.xlsx?$/i)){setStatus('❌ Solo se aceptan archivos .xlsx o .xls');return;}
+  FILENAME=file.name;
+  setStatus('📂 Leyendo archivo...');setProgress(25);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      setProgress(50);setStatus('⚙️ Detectando columnas...');
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      RAW_ROWS=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+      if(!RAW_ROWS.length){setStatus('❌ El archivo está vacío.');return;}
+      const detected=autoDetectColumns(Object.keys(RAW_ROWS[0]||{}));
+      const missing=REQUIRED_FIELDS.filter(f=>!detected[f]);
+      if(missing.length===0){
+        COLS=detected;setProgress(80);setStatus('📊 Generando informe...');
+        setTimeout(()=>{generateReport();},100);
+      }else{
+        setProgress(60);setStatus('⚠️ Seleccione las columnas manualmente:');
+        showManualMapper(Object.keys(RAW_ROWS[0]||{}),detected);
+      }
+    }catch(err){setStatus('❌ Error: '+err.message);console.error(err);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── AUTO DETECT COLUMNS ─────────────────────────────────────────────────────
+function autoDetectColumns(headers){
+  const result={};
+  const lHeaders=headers.map(h=>h.toLowerCase().trim());
+  for(const [field,aliases] of Object.entries(FIELD_ALIASES)){
+    for(const alias of aliases){
+      const idx=lHeaders.findIndex(h=>h.includes(alias));
+      if(idx>=0){result[field]=headers[idx];break;}
+    }
+  }
+  if(!result.lote){
+    const idx=lHeaders.findIndex(h=>h.includes('lot')||h.includes('batch'));
+    if(idx>=0)result.lote=headers[idx];
+  }
+  return result;
+}
+
+// ─── MANUAL MAPPER ───────────────────────────────────────────────────────────
+const FIELD_LABELS={
+  almacen:'Almacén / Bodega',gpo:'Grupo de Materiales',cod:'Código de Material',
+  desc:'Descripción del Material',lote:'Lote / Batch',exist:'Existencia Teórica (Qty)',
+  contada:'Cantidad Contada',diffQ:'Diferencia en Cantidad',diffV:'Diferencia en Valores ($)',
+  valExist:'Valor Existencia Teórica ($)',valCont:'Valor Cantidad Contada ($)',
+  fecha:'Fecha del Documento',centro:'Centro / Planta',ref:'Referencia de Inventario'
+};
+function showManualMapper(headers,detected){
+  const mapper=document.getElementById('col-mapper');
+  const grid=document.getElementById('col-map-grid');
+  grid.innerHTML='';
+  const opts=['<option value="">-- No disponible --</option>',...headers.map(h=>`<option value="${h}">${h}</option>`)].join('');
+  for(const [field,label] of Object.entries(FIELD_LABELS)){
+    const sel=`<div class="col-map-item">
+      <label>${REQUIRED_FIELDS.includes(field)?'* ':''}${label}</label>
+      <select id="map_${field}">${opts}</select>
+    </div>`;
+    grid.insertAdjacentHTML('beforeend',sel);
+    if(detected[field])document.querySelector(`#map_${field}`).value=detected[field];
+  }
+  mapper.style.display='block';
+}
+function generateReport(){
+  const fields=Object.keys(FIELD_LABELS);
+  for(const f of fields){const el=document.getElementById('map_'+f);if(el&&el.value)COLS[f]=el.value;}
+  const missing=REQUIRED_FIELDS.filter(f=>!COLS[f]);
+  if(missing.length){alert('Faltan columnas obligatorias: '+missing.map(f=>FIELD_LABELS[f]).join(', '));return;}
+  setProgress(85);setStatus('📊 Generando informe...');
+  setTimeout(()=>{buildReport();},100);
+}
+
+// ─── PARSE DATA ───────────────────────────────────────────────────────────────
+function parseData(){
+  return RAW_ROWS.map(r=>{
+    const g=(f)=>{const c=COLS[f];return c?(r[c]||'').toString().trim():'';};
+    const n=(f)=>{const c=COLS[f];if(!c)return 0;return parseFloat((r[c]||'').toString().replace(/[,$]/g,''))||0;};
+    const lote=g('lote');
+    return{
+      almacen:g('almacen'),gpo:g('gpo'),cod:g('cod'),desc:g('desc'),
+      lote,tieneLote:(()=>{
+        if(!lote||lote===''||lote==='0')return false;
+        const l=lote.toLowerCase().trim();
+        if(l==='nan'||l==='sin lote'||l==='no aplica'||l==='n/a'||l==='ninguno')return false;
+        if(/^0+$/.test(lote))return false;
+        return true;
+      })(),
+      exist:n('exist'),contada:n('contada'),
+      diffQ:n('diffQ'),diffV:n('diffV'),
+      valExist:n('valExist'),valCont:n('valCont'),
+      fecha:g('fecha'),centro:g('centro'),ref:g('ref'),
+    };
+  });
+}
+
+// ─── FORMAT HELPERS ───────────────────────────────────────────────────────────
+const $=(v)=>'$'+(v||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+const N=(v,d=0)=>(v||0).toLocaleString('es-MX',{minimumFractionDigits:d,maximumFractionDigits:d>0?d:2});
+const P=(v)=>(v||0).toFixed(2)+'%';
+
+// ─── NIVELES DE EFECTIVIDAD (del archivo EFECTIVIDADniveles) ─────────────────
+// Fórmula: efectividad = 1 - (|diferencias| / existencia_teorica)
+// Niveles: ≥ 95% ÓPTIMO · ≥ 88% BIEN · ≥ 70% EN ALERTA · < 70% CRÍTICO
+function calcEfectividad(existencia, difAbs){
+  if(existencia===0)return 0;
+  return (1 - difAbs/existencia)*100;
+}
+function colorEf(p){return p>=95?'#1A7A4A':p>=88?'#2980B9':p>=70?'#B7700A':'#C0392B';}
+function pillEf(p){return p>=95?'pill-opt':p>=88?'pill-bien':p>=70?'pill-alerta':'pill-crit';}
+function labelEf(p){return p>=95?'ÓPTIMO':p>=88?'BIEN':p>=70?'EN ALERTA':'CRÍTICO';}
+function pillDot(p){return p>=95?'opt':p>=88?'bien':p>=70?'alerta':'crit';}
+
+function rankBadge(i){const c=i===0?'r1':i===1?'r2':i===2?'r3':'rn';return`<span class="rank ${c}">${i+1}</span>`;}
+function groupBy(arr,key){const m={};arr.forEach(d=>{const k=d[key]||'(Sin '+key+')';if(!m[k])m[k]=[];m[k].push(d);});return m;}
+function sumAbs(arr,key){return arr.reduce((s,d)=>s+Math.abs(d[key]||0),0);}
+function sumNet(arr,key){return arr.reduce((s,d)=>s+(d[key]||0),0);}
+
+// Leyenda de niveles
+function nivelesHTML(){
+  return`<div class="ef-niveles">
+    <div class="ef-niveles-title">Niveles de Efectividad</div>
+    <div class="ef-niveles-grid">
+      <div class="ef-nivel-item"><div class="ef-nivel-dot opt"></div><span><strong>≥ 95%</strong> — Óptimo</span></div>
+      <div class="ef-nivel-item"><div class="ef-nivel-dot bien"></div><span><strong>88% – 94.9%</strong> — Bien</span></div>
+      <div class="ef-nivel-item"><div class="ef-nivel-dot alerta"></div><span><strong>70% – 87.9%</strong> — En Alerta</span></div>
+      <div class="ef-nivel-item"><div class="ef-nivel-dot crit"></div><span><strong>< 70%</strong> — Crítico</span></div>
+    </div>
+  </div>`;
+}
+
+// ─── BUILD REPORT ─────────────────────────────────────────────────────────────
+function buildReport(){
+  const data=parseData();
+  const totalReg=data.length;
+  if(!totalReg){setStatus('❌ No se encontraron filas con datos.');return;}
+
+  const totalExist    = sumNet(data,'exist');
+  const totalCont     = sumNet(data,'contada');
+  const totalAbsDiffQ = sumAbs(data,'diffQ');
+  const totalNetDiffQ = sumNet(data,'diffQ');
+  const totalValExist = sumNet(data,'valExist');
+  const totalAbsDiffV = sumAbs(data,'diffV');
+  const totalNetDiffV = sumNet(data,'diffV');
+
+  // Efectividad usando fórmula del archivo EFECTIVIDADniveles
+  const efCant  = calcEfectividad(totalExist, totalAbsDiffQ);
+  const efValor = calcEfectividad(totalValExist, totalAbsDiffV);
+
+  // ── 4 NIVELES EFECTIVIDADniveles ──────────────────────────────────────────
+  const ef1=efCant, ef1Exist=totalExist, ef1DiffAbs=totalAbsDiffQ;
+
+  const _grp={};
+  data.forEach(d=>{
+    const mes=d.fecha?String(d.fecha).substring(0,7):'s/f';
+    const k=d.cod+'||'+d.centro+'||'+mes;
+    if(!_grp[k])_grp[k]={exist:0,diffQ:0};
+    _grp[k].exist+=d.exist; _grp[k].diffQ+=d.diffQ;
+  });
+  let ef2Exist=0,ef2DiffAbs=0;
+  Object.values(_grp).forEach(g=>{ef2Exist+=g.exist;ef2DiffAbs+=Math.abs(g.diffQ);});
+  const ef2=calcEfectividad(ef2Exist,ef2DiffAbs);
+
+  const _sinLote=data.filter(d=>!d.tieneLote);
+  const ef3Exist=sumNet(_sinLote,'exist'), ef3DiffAbs=sumAbs(_sinLote,'diffQ');
+  const ef3=calcEfectividad(ef3Exist,ef3DiffAbs);
+
+  // ─── NIVEL 4: Con Lote ───
+  // El factor sistémico de lote es el principal driver de la pérdida de
+  // efectividad. Las tablas "Top Códigos con Lote" reflejan este universo.
+  const _conLote=data.filter(d=>d.tieneLote);
+  const _conDif =data.filter(d=>d.diffQ!==0);   // utilitario para textos descriptivos
+  const ef4Exist=sumNet(_conLote,'exist'), ef4DiffAbs=sumAbs(_conLote,'diffQ');
+  const ef4=calcEfectividad(ef4Exist,ef4DiffAbs);
+
+  const conLote = _conLote;
+  const faltantes = data.filter(d=>d.diffQ<0);
+  const sobrantes = data.filter(d=>d.diffQ>0);
+  const exactos   = data.filter(d=>d.diffQ===0);
+  const loteDiffV = sumAbs(conLote,'diffV');
+  const lotePct   = totalAbsDiffV>0?loteDiffV/totalAbsDiffV*100:0;
+
+  // Meta info
+  const centro  = data.find(d=>d.centro)?.centro||'—';
+  const ref     = data.find(d=>d.ref)?.ref||'—';
+  const fechaVal= data.find(d=>d.fecha)?.fecha||'';
+  const almacenes=[...new Set(data.map(d=>d.almacen).filter(Boolean))];
+
+  // Header
+  document.getElementById('h-title').textContent='Toma Física de Inventario — Centro '+centro;
+  document.getElementById('h-sub').textContent='Referencia: '+ref;
+  document.getElementById('m-centro').textContent=centro;
+  document.getElementById('m-ref').textContent=ref;
+  document.getElementById('m-fecha').textContent=fechaVal||'—';
+  document.getElementById('m-lineas').textContent=totalReg.toLocaleString('es-MX');
+  document.getElementById('m-alms').textContent=almacenes.join(', ')||'—';
+  document.getElementById('tb-file').textContent=FILENAME;
+  document.getElementById('footer-id').textContent=centro+' · INVENTARIO';
+  document.getElementById('comp-sub').textContent='Centro '+centro+' — Toma Física de Inventario';
+
+  // Resultado de inventario: neto en valor (muestra si sobrante o faltante)
+  const resultadoClase = totalNetDiffV>0?'positivo':totalNetDiffV<0?'negativo':'neutro';
+  const resultadoLabel = totalNetDiffV>0?'▲ Sobrante Neto':totalNetDiffV<0?'▼ Faltante Neto':'= Sin diferencia neta';
+
+  // KPIs — sin impactos absolutos, incluye resultado de inventario
+  // Regla optimizador: valores monetarios positivos = AZUL, negativos = ROJO
+  const kpis=[
+    {l:'Existencia Teórica',  v:N(totalExist)+' uds',    n:'Stock registrado en sistema',              c:''},
+    {l:'Unidades Contadas',   v:N(totalCont)+' uds',     n:'Stock físico contado',                     c:''},
+    {l:'Resultado Inventario',v:`<div>${$(totalNetDiffV)}</div><div class="resultado-badge ${resultadoClase}" style="margin-top:4px;font-size:11px">${resultadoLabel}</div>`, n:'Diferencia neta en valor ($)',n2:true, c:totalNetDiffV>=0?'blue':'red'},
+    {l:'Diferencia Neta Cant.',v:N(totalNetDiffQ)+' uds', n:totalNetDiffQ>=0?'Sobrante neto en uds':'Faltante neto en uds', c:totalNetDiffQ>=0?'blue':'red'},
+    {l:'Líneas Exactas',      v:P(exactos.length/totalReg*100), n:exactos.length.toLocaleString()+' de '+totalReg.toLocaleString()+' líneas', c:exactos.length/totalReg>.65?'green':'orange'},
+    {l:'Líneas con Faltante', v:faltantes.length.toLocaleString(), n:'En valor: '+$(sumAbs(faltantes,'diffV')),  c:'red'},
+    {l:'Líneas con Sobrante', v:sobrantes.length.toLocaleString(), n:'En valor: '+$(sumAbs(sobrantes,'diffV')),  c:'orange'},
+    {l:'Líneas con Lote',     v:P(conLote.length/totalReg*100), n:conLote.length+' líneas — impacto '+$(loteDiffV), c:''},
+  ];
+  document.getElementById('kpi-grid').innerHTML=kpis.map(k=>`
+    <div class="kpi-card">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-value ${k.c}">${k.v}</div>
+      <div class="kpi-note">${k.n}</div>
+    </div>`).join('');
+
+  // ── GAUGES: 4 NIVELES EFECTIVIDAD ────────────────────────────────────────
+  function gaugeCard(lbl,sub,ef,existStr,diffStr){
+    const bw=Math.min(Math.max(ef,0),100);
+    const isNeg=ef<0;
+    return`<div class="gauge-card">
+      <div class="gauge-lbl">${lbl}</div>
+      <div style="font-size:10px;color:var(--sub);margin-bottom:8px;line-height:1.3">${sub}</div>
+      <div class="gauge-big" style="color:${colorEf(ef)}">${ef.toFixed(2)}%</div>
+      <div class="gauge-bar-wrap">
+        ${isNeg?`<div style="font-size:10px;color:#C0392B;margin-bottom:2px">⚠ Diferencia supera existencia teórica</div>`:''}
+        <div class="gauge-bar-fill" style="width:${bw}%;background:${colorEf(ef)}"></div>
+      </div>
+      <div class="gauge-labels"><span>0%</span><span>Meta 88%</span><span>100%</span></div>
+      <div style="background:var(--bg);border-radius:7px;padding:9px 11px;margin-top:9px;font-size:11px;color:var(--sub);line-height:1.75">
+        <div>Existencia Teórica: <strong style="color:var(--navy)">${existStr}</strong></div>
+        <div>Diferencia Absoluta: <strong style="color:var(--red)">${diffStr}</strong></div>
+        <div style="border-top:1px solid var(--mid);margin-top:5px;padding-top:5px;font-size:10.5px">
+          1 − (${diffStr} ÷ ${existStr}) = <strong style="color:${colorEf(ef)}">${ef.toFixed(2)}%</strong>
+        </div>
+      </div>
+      <span class="pill ${pillEf(ef)}" style="margin-top:10px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${colorEf(ef)};display:inline-block;margin-right:4px"></span>
+        ${labelEf(ef)}
+      </span>
+    </div>`;
+  }
+
+  document.getElementById('gauge-row').innerHTML=
+    nivelesHTML()+
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      ${gaugeCard('NIVEL 1 — Detalle Original',
+          'Cada renglón como observación independiente',
+          ef1, N(ef1Exist)+' uds', N(ef1DiffAbs)+' uds')}
+      ${gaugeCard('NIVEL 2 — Centro + Material + Mes',
+          'Diferencia neta por grupo → Σ|netas| / Σexistencia',
+          ef2, N(ef2Exist)+' uds', N(ef2DiffAbs)+' uds')}
+      ${gaugeCard('NIVEL 3 — Sin Lote',
+          'Renglones sin número de lote ('+_sinLote.length+' líneas)',
+          ef3, N(ef3Exist)+' uds', N(ef3DiffAbs)+' uds')}
+      ${gaugeCard('NIVEL 4 — Con Lote',
+          'Renglones con número de lote ('+_conLote.length+' líneas) — factor sistémico que más impacta',
+          ef4, N(ef4Exist)+' uds', N(ef4DiffAbs)+' uds')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+      ${gaugeCard('Efectividad por Valor en Importe',
+          'Base: valor teórico vs diferencia en importe ($)',
+          efValor, $(totalValExist), $(totalAbsDiffV))}
+      <div class="gauge-card" style="display:flex;flex-direction:column;justify-content:center">
+        <div class="ef-niveles-title" style="margin-bottom:14px">Comparativo de Niveles</div>
+        ${[['N1 Efectividad General "Procesos"',ef1],['N2 Efectividad con Correciones',ef2],
+           ['N3 Efectividad Plomeria/Sin Lote',ef3],['N4 Efectividad pisos Con Lote',ef4],
+           ['Por Valor ($)',efValor]].map(([l,v])=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+            <span style="font-size:11px;color:var(--sub);min-width:110px;flex-shrink:0">${l}</span>
+            <div style="flex:1;height:7px;background:var(--mid);border-radius:4px;overflow:hidden">
+              <div style="width:${Math.min(Math.max(v,0),100)}%;height:100%;background:${colorEf(v)};border-radius:4px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:${colorEf(v)};min-width:56px;text-align:right">${v.toFixed(1)}%</span>
+            <span class="pill ${pillEf(v)}" style="margin-top:0;padding:2px 7px;font-size:10px;min-width:64px;text-align:center">${labelEf(v)}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+    // Almacenes (con efectividad calculada por la misma fórmula)
+  const almGrp=groupBy(data,'almacen');
+  const almArr=Object.entries(almGrp).map(([name,rows])=>{
+    const ex=sumNet(rows,'exist');
+    const da=sumAbs(rows,'diffQ');
+    const dv=sumAbs(rows,'diffV');
+    const netQ=sumNet(rows,'diffQ');
+    const netV=sumNet(rows,'diffV');
+    const ef=calcEfectividad(ex,da);
+    return{name,reg:rows.length,ex,da,dv,netQ,netV,ef};
+  }).sort((a,b)=>a.ef-b.ef);
+
+  // Puntos críticos
+  const worstAlm=almArr[0];
+  const loteRows=conLote.filter(d=>d.diffQ!==0);
+  const criticos=[];
+  if(worstAlm&&worstAlm.ef<70){
+    criticos.push(`<div class="alert-box"><div class="al-icon">🔴</div><div>
+      <div class="al-title">ALMACÉN ${worstAlm.name}: Efectividad Crítica del ${worstAlm.ef.toFixed(1)}%</div>
+      <div class="al-text">El almacén <strong>${worstAlm.name}</strong> presenta la peor efectividad del centro con ${worstAlm.reg} líneas analizadas. Requiere intervención inmediata y conteo físico de verificación.</div>
+    </div></div>`);
+  }
+  const gpoGrp=groupBy(data,'gpo');
+  const gpoArr=Object.entries(gpoGrp).map(([g,rows])=>({g,dv:sumAbs(rows,'diffV'),netV:sumNet(rows,'diffV'),rows})).sort((a,b)=>b.dv-a.dv);
+  if(gpoArr[0]){
+    const top=gpoArr[0];
+    const pct=totalAbsDiffV>0?top.dv/totalAbsDiffV*100:0;
+    criticos.push(`<div class="alert-box"><div class="al-icon">🟠</div><div>
+      <div class="al-title">GRUPO ${top.g}: Mayor Concentración de Diferencias — ${pct.toFixed(1)}% del total</div>
+      <div class="al-text">El grupo <strong>${top.g}</strong> concentra el <strong>${pct.toFixed(1)}%</strong> del impacto total en valor. Priorizar la revisión de este grupo para recuperar la mayor parte de la efectividad perdida.</div>
+    </div></div>`);
+  }
+  if(conLote.length>0){
+    criticos.push(`<div class="alert-box"><div class="al-icon">🟡</div><div>
+      <div class="al-title">CONTROL DE LOTE: ${lotePct.toFixed(1)}% del Impacto Proviene de Errores de Lote</div>
+      <div class="al-text">De las <strong>${conLote.length} líneas con lote</strong>, ${loteRows.length} presentan diferencias por un total de <strong>${$(loteDiffV)}</strong>. El patrón es sistemático: mismo código, sobrante en un lote y faltante en otro.</div>
+    </div></div>`);
+  }
+  document.getElementById('criticos').innerHTML=criticos.join('')||'<p style="color:var(--sub)">No se detectaron puntos críticos graves.</p>';
+
+  // Almacenes grid — efectividad con niveles
+  document.getElementById('alm-grid').innerHTML=almArr.map(a=>`
+    <div class="alm-card">
+      <div class="alm-name">${a.name}</div>
+      <div class="alm-sub">${a.reg.toLocaleString()} líneas analizadas</div>
+      <div class="alm-ef-lbl">Efectividad en Cantidad</div>
+      <div class="alm-bar"><div class="alm-bar-fill" style="width:${Math.min(a.ef,100)}%;background:${colorEf(a.ef)}"></div></div>
+      <div class="alm-pct" style="color:${colorEf(a.ef)}">${a.ef.toFixed(2)}%</div>
+      <span class="pill ${pillEf(a.ef)}"><span style="width:7px;height:7px;border-radius:50%;background:${colorEf(a.ef)};display:inline-block;margin-right:4px"></span>${labelEf(a.ef)}</span>
+      <div class="alm-stats">
+        <div class="alm-stat-item"><div class="v">${N(a.ex)}</div><div class="l">Exist. Teórica</div></div>
+        <div class="alm-stat-item"><div class="v">${N(a.da)}</div><div class="l">Dif. Absoluta</div></div>
+        <div class="alm-stat-item"><div class="v ${a.netV>=0?'pos':'neg'}">${a.netV>0?'+':''}${$(a.netV)}</div><div class="l">Dif. Neta $</div></div>
+      </div>
+    </div>`).join('');
+
+  // TOP GRUPOS — orden de MAYOR a MENOR impacto (los que más mueven la efectividad primero)
+  const gpoTop=gpoArr.slice(0,10);
+  const gpoTopSorted=[...gpoTop].sort((a,b)=>Math.abs(b.netV)-Math.abs(a.netV));
+  document.getElementById('tbl-grupos').innerHTML=`
+    <thead><tr><th>#</th><th>Grupo de Materiales</th><th>Líneas</th><th>% del Total Dif.</th><th>Dif. Neta $</th></tr></thead>
+    <tbody>${gpoTopSorted.map(({g,dv,rows,netV},i)=>{
+      const pct=totalAbsDiffV>0?dv/totalAbsDiffV*100:0;
+      return`<tr>
+        <td>${rankBadge(i)}</td>
+        <td><strong>${g}</strong></td>
+        <td>${rows.length}</td>
+        <td>${pct.toFixed(1)}%</td>
+        <td class="${netV>=0?'pos':'neg'}">${netV>0?'+':''}${$(netV)}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  // TOP CÓDIGOS — orden de MAYOR a MENOR |dif. neta $|
+  // Filtro: solo códigos con dif. neta de cantidad ≠ 0 (los que tienen sólo
+  // diferencia en valor por redondeo no son problemas reales de inventario).
+  const codGrp=groupBy(data,'cod');
+  const codTopAll=Object.entries(codGrp).map(([cod,rows])=>({
+    cod,desc:rows[0]?.desc||'',
+    ex:sumNet(rows,'exist'),ct:sumNet(rows,'contada'),
+    dv:sumAbs(rows,'diffV'),netV:sumNet(rows,'diffV'),netQ:sumNet(rows,'diffQ')
+  })).filter(c=>c.netQ!==0).sort((a,b)=>Math.abs(b.netV)-Math.abs(a.netV));
+  const codSortedDesc=codTopAll.slice(0,10);
+  document.getElementById('tbl-codigos').innerHTML=`
+    <thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Exist. Teórica</th><th>Cant. Contada</th><th>Dif. Neta $</th><th>Dif. Neta Cant.</th></tr></thead>
+    <tbody>${codSortedDesc.map(({cod,desc,ex,ct,netV,netQ},i)=>`<tr>
+      <td>${rankBadge(i)}</td>
+      <td><strong>${cod}</strong></td>
+      <td style="max-width:200px;font-size:11px">${desc}</td>
+      <td>${N(ex)}</td><td>${N(ct)}</td>
+      <td class="${netV>=0?'pos':'neg'}">${netV>0?'+':''}${$(netV)}</td>
+      <td class="${netQ>=0?'pos':'neg'}">${netQ>0?'+':''}${N(netQ)} uds</td>
+    </tr>`).join('')}</tbody>`;
+
+// TOP LOTES — orden de MAYOR a MENOR |diffV|, filtrando renglones sin diferencia real
+const loteTop = conLote.slice().filter(d => d.diffQ !== 0).sort((a, b) => Math.abs(b.diffV) - Math.abs(a.diffV)).slice(0, 10);
+document.getElementById('tbl-lotes').innerHTML = `
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Código</th>
+      <th>Descripción</th>
+      <th>Lote</th>
+      <th>Exist. Teórica</th>
+      <th>Cant. Contada</th>
+      <th>Dif. Neta $</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${loteTop.map((d, i) => {
+      return `<tr class="${(d.exist === 0 || d.contada === 0) ? 'row-mismatch' : ''}">
+        <td>${rankBadge(i)}</td>
+        <td><strong>${d.cod}</strong></td>
+        <td style="max-width:150px;font-size:11px">${d.desc}</td>
+        <td><span class="lote-chip">${d.lote}</span></td>
+        <td>${N(d.exist)}</td>
+        <td>${N(d.contada)}</td>
+        <td class="${d.diffV >= 0 ? 'pos' : 'neg'}">${d.diffV > 0 ? '+' : ''}${$(d.diffV)}</td>
+      </tr>`;
+    }).join('')}
+  </tbody>`;
+
+  // TOP DIFERENCIAS NETAS
+  const codNetMap={};
+  data.forEach(d=>{
+    const k=d.cod||'(Sin código)';
+    if(!codNetMap[k])codNetMap[k]={cod:k,desc:d.desc||'',netQ:0,netV:0,rows:[]};
+    codNetMap[k].netQ+=d.diffQ||0;
+    codNetMap[k].netV+=d.diffV||0;
+    codNetMap[k].rows.push(d);
+  });
+  const codNetArr=Object.values(codNetMap);
+
+  // Ordenados de menor a mayor importe (el menor negativo primero en faltantes, el menor positivo primero en sobrantes)
+  const allFaltantesV=codNetArr.filter(c=>c.netV<0).sort((a,b)=>a.netV-b.netV); // más negativo primero
+  const allSobrantesV=codNetArr.filter(c=>c.netV>0).sort((a,b)=>b.netV-a.netV); // mayor positivo primero
+  const topFaltantesV=allFaltantesV.slice(0,10);
+  const topSobrantesV=allSobrantesV.slice(0,10);
+
+  const totalFaltNetQ=codNetArr.filter(c=>c.netQ<0).reduce((s,c)=>s+c.netQ,0);
+  const totalFaltNetV=allFaltantesV.reduce((s,c)=>s+c.netV,0);
+  const totalSobrNetQ=codNetArr.filter(c=>c.netQ>0).reduce((s,c)=>s+c.netQ,0);
+  const totalSobrNetV=allSobrantesV.reduce((s,c)=>s+c.netV,0);
+
+  function buildNetTable(rows,mode){
+    if(!rows.length)return'<p style="padding:14px;color:var(--sub);font-size:12px">Sin datos disponibles</p>';
+    return`<table class="top-dif-table">
+      <thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Dif. Neta Cant.</th><th>Dif. Neta $</th></tr></thead>
+      <tbody>${rows.map((c,i)=>`<tr>
+        <td>${rankBadge(i)}</td>
+        <td><strong>${c.cod}</strong></td>
+        <td style="font-size:11px;max-width:150px">${c.desc||'—'}</td>
+        <td class="${c.netQ>=0?'pos':'neg'}">${c.netQ>0?'+':''}${N(c.netQ)} uds</td>
+        <td class="${c.netV>=0?'pos':'neg'}">${c.netV>0?'+':''}${$(c.netV)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+
+  document.getElementById('top-dif-grid').innerHTML=`
+    <div class="top-dif-panel">
+      <div class="top-dif-header faltante">
+        <div class="top-dif-icon">⬇</div>
+        <div>
+          <div class="top-dif-title faltante">Top Faltantes Netos</div>
+          <div style="font-size:11px;color:#a93226">Top 10 — mayor a menor faltante (de ${allFaltantesV.length} total)</div>
+        </div>
+      </div>
+      ${buildNetTable(topFaltantesV,'faltante')}
+      <div class="top-dif-footer">
+        <div><div class="tdf-label">Total Faltante Cant. (todos)</div><div class="tdf-val faltante">${N(totalFaltNetQ)} uds</div></div>
+        <div style="text-align:right"><div class="tdf-label">Total Faltante $ (todos)</div><div class="tdf-val faltante">${$(totalFaltNetV)}</div></div>
+      </div>
+    </div>
+    <div class="top-dif-panel">
+      <div class="top-dif-header sobrante">
+        <div class="top-dif-icon">⬆</div>
+        <div>
+          <div class="top-dif-title sobrante">Top Sobrantes Netos</div>
+          <div style="font-size:11px;color:#1A7A4A">Top 10 — mayor a menor sobrante (de ${allSobrantesV.length} total)</div>
+        </div>
+      </div>
+      ${buildNetTable(topSobrantesV,'sobrante')}
+      <div class="top-dif-footer">
+        <div><div class="tdf-label">Total Sobrante Cant. (todos)</div><div class="tdf-val sobrante">+${N(totalSobrNetQ)} uds</div></div>
+        <div style="text-align:right"><div class="tdf-label">Total Sobrante $ (todos)</div><div class="tdf-val sobrante">+${$(totalSobrNetV)}</div></div>
+      </div>
+    </div>`;
+
+  // INSIGHTS
+  const totalFaltV=sumAbs(faltantes,'diffV');
+  const totalSobrV=sumAbs(sobrantes,'diffV');
+  const top3gpoV=gpoTop.slice(0,3).reduce((s,g)=>s+g.dv,0);
+  const top3pct=totalAbsDiffV>0?top3gpoV/totalAbsDiffV*100:0;
+  const worstAlmEf=almArr[0];
+  const bestAlmEf=almArr[almArr.length-1];
+  const insightsData=[
+    {icon:'📦',title:'Almacén Crítico: '+worstAlmEf.name,
+     text:`El almacén <strong>${worstAlmEf.name}</strong> presenta efectividad de <strong>${worstAlmEf.ef.toFixed(1)}%</strong> (${labelEf(worstAlmEf.ef)}) con ${worstAlmEf.reg} líneas. Los artículos de este almacén no están siendo conciliados correctamente con el sistema.`,cls:'red'},
+    {icon:'🔄',title:'Efecto Espejo en Control de Lotes',
+     text:`<strong>${lotePct.toFixed(0)}% del impacto</strong> proviene de errores de lote (${$(loteDiffV)}). El fenómeno ocurre cuando el producto existe físicamente bajo un número de lote diferente al registrado en sistema.`,cls:''},
+    {icon:'📉',title:'Concentración del Riesgo',
+     text:`Solo los <strong>3 primeros grupos de materiales</strong> concentran el <strong>${top3pct.toFixed(0)}%</strong> del impacto total (${$(top3gpoV)}). Una estrategia focalizada en estos grupos puede recuperar la mayoría de la efectividad perdida.`,cls:'blue'},
+    {icon:'⚖️',title:'Balance Faltantes vs. Sobrantes',
+     text:`Se detectan <strong>${faltantes.length} líneas con faltante</strong> (${$(totalFaltV)}) vs. <strong>${sobrantes.length} líneas con sobrante</strong> (${$(totalSobrV)}). La diferencia neta de <strong>${$(totalNetDiffV)}</strong> indica que parte de las diferencias son compensatorias.`,cls:'green'},
+    {icon:'🎯',title:'Potencial de Recuperación Inmediata',
+     text:`La corrección documental de los <strong>top 10 códigos con lote</strong> puede elevar la efectividad en <strong>3-5 puntos porcentuales</strong> sin necesidad de un nuevo conteo físico. Solo requiere conciliación entre almacén y compras/sistemas.`,cls:'green'},
+    {icon:'📋',title:'Ausencia de Motivos de Diferencia',
+     text:`Si el campo "Motivo de Diferencia" está vacío, esto impide el análisis causal. En la próxima toma, el equipo debe registrar obligatoriamente el motivo en cada línea afectada.`,cls:'red'},
+    {icon:'🏪',title:'Mejor Desempeño: '+bestAlmEf.name,
+     text:`El almacén <strong>${bestAlmEf.name}</strong> muestra la mejor efectividad con <strong>${bestAlmEf.ef.toFixed(1)}%</strong> (${labelEf(bestAlmEf.ef)}). Sus mejores prácticas deben documentarse y replicarse.`,cls:''},
+    {icon:'💰',title:'Resultado de Inventario: '+$(totalNetDiffV),
+     text:`La diferencia neta en valor de <strong>${$(totalNetDiffV)}</strong> es el resultado final de la toma. Con efectividad por valor en <strong>${P(efValor)}</strong> (${labelEf(efValor)}), alcanzar la meta del 88% requiere reducir diferencias en valor.`,cls:'blue'},
+  ];
+  document.getElementById('insights-grid').innerHTML=insightsData.map(ins=>`
+    <div class="ins-card ${ins.cls}">
+      <div class="ins-icon">${ins.icon}</div>
+      <div class="ins-title">${ins.title}</div>
+      <div class="ins-text">${ins.text}</div>
+    </div>`).join('');
+
+  // CONCENTRACION
+  const codSorted2=Object.values(codNetMap).map(c=>({...c,absDiffV:Math.abs(c.netV)})).sort((a,b)=>b.absDiffV-a.absDiffV);
+  let acum=0;let paretoN=0;
+  for(const c of codSorted2){acum+=c.absDiffV;paretoN++;if(acum>=totalAbsDiffV*0.8)break;}
+  const paretoPct=(paretoN/Object.keys(codNetMap).length*100);
+  const ratioFS=totalSobrV>0?(totalFaltV/totalSobrV).toFixed(2):'N/A';
+  const almSobrante=almArr.slice().sort((a,b)=>b.netQ-a.netQ)[0];
+  const almFaltante=almArr.slice().sort((a,b)=>a.netQ-b.netQ)[0];
+  const brechaRecuperacion=Math.max(0,(88-efValor)/100*totalValExist);
+
+  document.getElementById('concentracion-grid').innerHTML=`
+    <div class="conc-card ${paretoPct<=20?'crit':paretoPct<=30?'warn':''}">
+      <div class="conc-label">Principio de Pareto</div>
+      <div class="conc-val">${paretoN} códigos</div>
+      <div class="conc-note">Concentran el <strong>80% del impacto</strong> (${paretoPct.toFixed(0)}% de los códigos). Atender solo estos ${paretoN} elementos resuelve la mayoría de diferencias.</div>
+    </div>
+    <div class="conc-card warn">
+      <div class="conc-label">Ratio Faltante / Sobrante</div>
+      <div class="conc-val">${ratioFS}x</div>
+      <div class="conc-note">Por cada $1 de sobrante hay $${ratioFS} de faltante. Ratio > 1 indica faltantes reales, no solo reclasificación.</div>
+    </div>
+    <div class="conc-card crit">
+      <div class="conc-label">Brecha para Meta 88% Valor</div>
+      <div class="conc-val" style="font-size:17px">${$(brechaRecuperacion)}</div>
+      <div class="conc-note">Valor en diferencias que debe regularizarse para alcanzar la meta de efectividad de <strong>88%</strong>.</div>
+    </div>
+    <div class="conc-card">
+      <div class="conc-label">Almacén Mayor Sobrante Neto</div>
+      <div class="conc-val" style="font-size:17px">${almSobrante?.name||'—'}</div>
+      <div class="conc-note">Diferencia neta positiva: <strong>+${N(almSobrante?.netQ||0)} uds</strong> / <strong>+${$(almSobrante?.netV||0)}</strong>. Posible producto no dado de entrada en sistema.</div>
+    </div>
+    <div class="conc-card crit">
+      <div class="conc-label">Almacén Mayor Faltante Neto</div>
+      <div class="conc-val" style="font-size:17px">${almFaltante?.name||'—'}</div>
+      <div class="conc-note">Diferencia neta negativa: <strong>${N(almFaltante?.netQ||0)} uds</strong> / <strong>${$(almFaltante?.netV||0)}</strong>. Prioridad de verificación.</div>
+    </div>
+    <div class="conc-card ${exactos.length/totalReg>.65?'':'crit'}">
+      <div class="conc-label">Precisión de Líneas</div>
+      <div class="conc-val">${P(exactos.length/totalReg*100)}</div>
+      <div class="conc-note"><strong>${exactos.length.toLocaleString()} líneas exactas</strong> de ${totalReg.toLocaleString()} totales. Meta recomendada: 65%+.</div>
+    </div>`;
+
+  // Tabla Pareto — ordenado de menor a mayor importe
+  let acumV2=0;
+  const paretoRows=[...codSorted2.slice(0,15)].sort((a,b)=>a.absDiffV-b.absDiffV).map((c,i)=>{
+    acumV2+=c.absDiffV;
+    const pctAcum=totalAbsDiffV>0?acumV2/totalAbsDiffV*100:0;
+    return`<tr>
+      <td>${rankBadge(i)}</td>
+      <td><strong>${c.cod}</strong></td>
+      <td style="font-size:11px;max-width:170px">${c.desc||'—'}</td>
+      <td class="${c.netV>=0?'pos':'neg'}">${c.netV>0?'+':''}${$(c.netV)}</td>
+      <td class="${c.netQ>=0?'pos':'neg'}">${c.netQ>0?'+':''}${N(c.netQ)} uds</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <div style="flex:1;height:4px;background:var(--mid);border-radius:3px;overflow:hidden">
+            <div style="width:${Math.min(pctAcum,100)}%;height:100%;background:${pctAcum<=50?'var(--green)':pctAcum<=80?'var(--gold)':'var(--red)'};border-radius:3px"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;min-width:34px">${pctAcum.toFixed(0)}%</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+  document.getElementById('tbl-pareto').innerHTML=`
+    <thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Dif. Neta $</th><th>Dif. Neta Cant.</th><th>% Acumulado</th></tr></thead>
+    <tbody>${paretoRows.join('')}</tbody>`;
+
+  // PLAN
+  const metaEfCant=Math.min(efCant+10,97).toFixed(0);
+  const metaEfValWord=Math.min(efValor+10,95).toFixed(0);
+  const loteTop5=conLote.slice().sort((a,b)=>Math.abs(b.diffV)-Math.abs(a.diffV)).slice(0,5);
+  const phases=[
+    {n:1,t:'Acción Inmediata — Conciliación y Corrección',meta:'Semanas 1–2',acts:[
+      {t:'Reconciliación de lotes críticos',d:`Revisar físicamente los ${loteTop5.map(l=>l.cod).join(', ')} y otros códigos del top lotes. Ajustar número de lote en sistema al lote real presente en almacén.`,o:'ENCARGADO ALMACÉN + COMPRAS'},
+      {t:'Conteo de verificación en '+worstAlmEf.name,d:`Realizar un conteo físico dedicado al almacén ${worstAlmEf.name} con efectividad del ${worstAlmEf.ef.toFixed(1)}%. Documentar todos los artículos y actualizar en sistema.`,o:'GERENTE + ENCARGADO ALMACÉN'},
+      {t:'Conciliación top 10 códigos críticos',d:`Revisar los códigos con mayor diferencia neta. Cruzar con órdenes de compra y remisiones de proveedor.`,o:'ADMINISTRACIÓN + ENCARGADO ALMACÉN'},
+      {t:`Protocolo urgente para grupo ${gpoTop[0]?.g||'crítico'}`,d:`El grupo con mayor diferencias requiere conteo de verificación inmediato. Asignar responsable específico para este grupo.`,o:'ENCARGADO ALMACÉN'},
+    ]},
+    {n:2,t:'Corrección Estructural — Procesos y Controles',meta:'Semanas 3–6',acts:[
+      {t:'Protocolo de recepción con lote obligatorio',d:'Implementar checklist donde el receptor capture el número de lote en el momento de la entrada física. No permitir entrada sin lote cuando el código lo requiere.',o:'GERENTE + ENCARGADO ALMACÉN'},
+      {t:'Capacitación al equipo de almacén',d:'Sesión de 4 horas sobre manejo correcto de lotes en el sistema, con los casos prácticos encontrados en esta toma de inventario.',o:'GERENTE'},
+      {t:'Implementar conteo cíclico por clasificación ABC',d:'Conteo semanal para materiales A. Conteo mensual para B. Conteo trimestral para C y D. Usar la efectividad por grupo como KPI de seguimiento.',o:'ENCARGADO ALMACÉN'},
+      {t:'Regularización del almacén de exhibición/especial',d:'Crear categoría especial en sistema para artículos de exhibición con protocolo de conteo mensual independiente.',o:'ADMINISTRACIÓN + SISTEMAS'},
+    ]},
+    {n:3,t:'Mejora Continua — Tecnología y Seguimiento',meta:'Mes 2–3',acts:[
+      {t:`Dashboard semanal — Meta: ${metaEfCant}% cant. / ${metaEfValWord}% valor`,d:'Implementar reporte semanal automático de efectividad por almacén y grupo, visible para gerente y corporativo.',o:'ADMINISTRACIÓN + SISTEMAS'},
+      {t:'Escaneo de lote en transferencias internas',d:'Toda transferencia entre almacenes debe registrarse con número de lote. Prohibir transferencias manuales sin respaldo en sistema.',o:'ENCARGADO ALMACÉN'},
+      {t:'Registro obligatorio de motivos de diferencia',d:'En la próxima toma y en todos los ajustes de inventario, selección obligatoria del motivo: error de conteo, merma, robo, error de lote, transferencia no registrada.',o:'ENCARGADO ALMACÉN + GERENTE'},
+      {t:'KPI de inventario en junta mensual gerencial',d:'Incorporar la efectividad de inventario como punto fijo de agenda. Presentar avance vs. meta ante la dirección.',o:'GERENTE'},
+    ]},
+  ];
+  document.getElementById('plan-wrap').innerHTML=phases.map(p=>`
+    <div class="plan-phase">
+      <div class="plan-header">
+        <div class="plan-num">${p.n}</div>
+        <div class="plan-title">${p.t}</div>
+        <div class="plan-meta">${p.meta}</div>
+      </div>
+      <div class="plan-body">${p.acts.map(a=>`
+        <div class="act"><strong>${a.t}</strong>${a.d}<div class="own">👤 ${a.o}</div></div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  // COMPROMISO
+  document.getElementById('comp-objetivos').innerHTML=[
+    `Elevar la efectividad global por cantidad de <strong>${P(efCant)}</strong> al <strong>${metaEfCant}%</strong> en un plazo máximo de 60 días`,
+    `Alcanzar efectividad por valor de <strong>${P(efValor)}</strong> al <strong>${metaEfValWord}%</strong> mediante regularización de lotes y conciliación de almacenes`,
+    `Implementar el 100% de las acciones del Plan de Mejora dentro de los plazos establecidos`,
+    `Reportar avances semanales al equipo corporativo de auditoría durante las primeras 8 semanas`,
+    `Establecer protocolo permanente de control de lotes y abastecimiento para prevenir recurrencia`,
+  ].map(o=>`<div class="comp-obj">${o}</div>`).join('');
+
+  setProgress(100);
+  setTimeout(()=>{
+    document.getElementById('upload-screen').style.display='none';
+    document.getElementById('report').style.display='block';
+    window.scrollTo(0,0);
+  },300);
+}
+
+// ─── DOWNLOAD WORD ────────────────────────────────────────────────────────────
+function downloadWord(){
+  const centro=document.getElementById('m-centro').textContent;
+  const ref=document.getElementById('m-ref').textContent;
+  const fecha=document.getElementById('m-fecha').textContent;
+
+  function tableToWord(id){
+    const t=document.getElementById(id);
+    if(!t)return'';
+    const rows=t.querySelectorAll('tr');
+    let h=`<table style="width:100%;border-collapse:collapse;font-size:9pt;margin:8pt 0">`;
+    rows.forEach(r=>{
+      h+='<tr>';
+      r.querySelectorAll('th,td').forEach(c=>{
+        const tag=c.tagName==='TH'?'th':'td';
+        const bg=tag==='th'?'background:#0D1B2A;color:white;':'';
+        const txt=c.textContent.trim().replace(/\s+/g,' ');
+        h+=`<${tag} style="padding:5pt 7pt;border:1pt solid #D0C8BB;${bg}font-size:9pt">${txt}</${tag}>`;
+      });
+      h+='</tr>';
+    });
+    return h+'</table>';
+  }
+  function kpisToWord(){
+    const cards=document.querySelectorAll('.kpi-card');
+    let h='<table style="width:100%;border-collapse:collapse;margin:8pt 0"><tr>';
+    cards.forEach((c,i)=>{
+      h+=`<td style="padding:7pt;background:#F7F8FA;border:1pt solid #D1D9E0;vertical-align:top;width:25%">
+        <div style="font-size:7pt;text-transform:uppercase;color:#6B7280">${c.querySelector('.kpi-label')?.textContent||''}</div>
+        <div style="font-size:13pt;font-weight:bold;color:#0D1B2A">${c.querySelector('.kpi-value')?.textContent||''}</div>
+        <div style="font-size:7pt;color:#6B7280">${c.querySelector('.kpi-note')?.textContent||''}</div>
+      </td>`;
+      if((i+1)%4===0&&i<cards.length-1)h+='</tr><tr>';
+    });
+    return h+'</tr></table>';
+  }
+  function gaugesToWord(){
+    const gs=document.querySelectorAll('.gauge-card');
+    let h='<table style="width:100%;border-collapse:collapse;margin:8pt 0"><tr>';
+    gs.forEach(g=>{
+      h+=`<td style="padding:12pt;background:#F7F8FA;border:1pt solid #D1D9E0;width:50%">
+        <div style="font-size:8pt;text-transform:uppercase;color:#6B7280">${g.querySelector('.gauge-lbl')?.textContent||''}</div>
+        <div style="font-size:24pt;font-weight:bold;color:#0D1B2A">${g.querySelector('.gauge-big')?.textContent||''}</div>
+        <div style="font-size:8pt;color:#6B7280;margin-top:4pt">${g.querySelector('.gauge-formula')?.textContent||''}</div>
+        <div style="font-weight:bold;color:#C9922A;margin-top:4pt;font-size:10pt">${g.querySelector('.pill')?.textContent||''}</div>
+      </td>`;
+    });
+    return h+'</tr></table>';
+  }
+  function almToWord(){
+    const cards=document.querySelectorAll('.alm-card');
+    let h='<table style="width:100%;border-collapse:collapse;margin:8pt 0"><tr>';
+    cards.forEach((c,i)=>{
+      const stats=c.querySelectorAll('.alm-stat-item');
+      let statsStr='';
+      stats.forEach(s=>{statsStr+=`${s.querySelector('.l')?.textContent||''}: <strong>${s.querySelector('.v')?.textContent||''}</strong> &nbsp; `;});
+      h+=`<td style="padding:10pt;border:1pt solid #0D1B2A;vertical-align:top">
+        <div style="font-size:13pt;font-weight:bold;color:#0D1B2A">${c.querySelector('.alm-name')?.textContent||''}</div>
+        <div style="font-size:8pt;color:#6B7280">${c.querySelector('.alm-sub')?.textContent||''}</div>
+        <div style="font-size:18pt;font-weight:bold;color:#0D1B2A;margin:4pt 0">${c.querySelector('.alm-pct')?.textContent||''}</div>
+        <div style="font-weight:bold;color:#C9922A;font-size:10pt">${c.querySelector('.pill')?.textContent||''}</div>
+        <div style="font-size:8pt;color:#6B7280;margin-top:6pt">${statsStr}</div>
+      </td>`;
+      if((i+1)%3===0)h+='</tr><tr>';
+    });
+    return h+'</tr></table>';
+  }
+
+  const wordHtml=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  <head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>Informe Inventario ${centro}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotPromptForConvert/>
+      <w:DoNotShowPropertyChanges/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+  /* Página tamaño Carta (US Letter 8.5in x 11in) — compatible con MS Word */
+  @page WordSection1{
+    size:8.5in 11.0in;
+    mso-page-orientation:portrait;
+    margin:1.0in 0.9in 1.0in 0.9in;
+    mso-header-margin:0.5in;
+    mso-footer-margin:0.5in;
+  }
+  div.WordSection1{page:WordSection1;}
+  body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#1A1A1A;line-height:1.4;}
+  h1,h2,h3,th{font-weight:bold;}
+  h2{color:#0D1B2A;border-bottom:2pt solid #C9922A;padding-bottom:4pt;margin-top:18pt;page-break-after:avoid;}
+  table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;}
+  td,th{mso-border-alt:solid #D1D9E0 .5pt;}
+  .neg-w{color:#C0392B;font-weight:bold;}
+  .pos-w{color:#1A4A8A;font-weight:bold;}
+  </style>
+  </head>
+  <body>
+  <div class="WordSection1">
+  <div style="background:#0D1B2A;padding:24pt 32pt;color:white;margin-bottom:16pt;mso-element:para-border-div">
+    <p style="font-size:8pt;letter-spacing:3pt;color:#C9922A;text-transform:uppercase;margin:0">Informe Ejecutivo Corporativo — Auditoría de Inventario</p>
+    <h1 style="font-size:22pt;margin:6pt 0 4pt 0;color:white;font-weight:bold">Toma Física de Inventario — Centro ${centro}</h1>
+    <p style="font-size:10pt;color:#C9C9C9;margin:0">Referencia: ${ref} · Fecha: ${fecha}</p>
+  </div>
+  <h2>1. Indicadores Clave de Desempeño</h2>
+  ${kpisToWord()}
+  <h2>2. Efectividad de Inventario (4 Niveles)</h2>
+  <p style="font-size:9pt;color:#6B7280;margin:6pt 0">El Nivel 4 corresponde a los renglones con número de lote — es el factor sistémico que más impacta la efectividad y se aborda en detalle en la sección 6.</p>
+  ${gaugesToWord()}
+  <h2>3. Efectividad por Almacén</h2>
+  ${almToWord()}
+  <h2>4. Top Grupos de Materiales</h2>
+  ${tableToWord('tbl-grupos')}
+  <h2>5. Top Códigos — Mayor Diferencia en Valor</h2>
+  ${tableToWord('tbl-codigos')}
+  <h2 style="page-break-before:auto">6. Top Códigos con Lote (Comentario Sistémico)</h2>
+  <div style="background:#FFF7F7;border:1pt solid #F5C6C2;padding:9pt 12pt;font-size:9.5pt;color:#7A3333;margin:6pt 0">
+    <strong style="color:#C0392B">Problema sistémico de abastecimiento por lote:</strong> el patrón recurrente muestra sobrantes en un lote y faltantes en otro para el mismo código. No es pérdida real — el sistema registra el stock bajo un número de lote distinto al que físicamente ingresó. Origen: capturas incorrectas en recepción o transferencias internas sin documentación de lote. <em>Este factor afecta directamente a la efectividad y debe atenderse como prioridad.</em>
+  </div>
+  ${tableToWord('tbl-lotes')}
+  <h2>7. Tabla Pareto — Concentración del Impacto</h2>
+  ${tableToWord('tbl-pareto')}
+  <p style="text-align:center;font-size:7.5pt;color:#888;margin-top:24pt;border-top:1pt solid #D1D9E0;padding-top:8pt">${centro} · Informe Ejecutivo de Inventario · Auditoría Corporativa — Uso Interno Confidencial</p>
+  </div>
+  </body>
+  </html>`;
+
+  const blob=new Blob(['\ufeff'+wordHtml],{type:'application/msword;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`Informe_Inventario_${centro}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── DOWNLOAD PDF ─────────────────────────────────────────────────────────────
+async function downloadPDF(){
+  const centro=document.getElementById('m-centro').textContent;
+  const loading=document.getElementById('pdf-loading');
+  loading.classList.add('active');
+  try{
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
+    const pageW=215.9;const pageH=279.4;const margin=12;const usableW=pageW-margin*2;
+    const sections=[
+      {el:'.rpt-header',label:'Encabezado'},
+      {el:'#kpi-grid',label:'KPIs',title:'1. Indicadores Clave de Desempeño'},
+      {el:'#gauge-row',label:'Efectividad',title:'2. Efectividad de Inventario'},
+      {el:'#criticos',label:'Puntos Críticos',title:'3. Puntos Críticos Detectados'},
+      {el:'#alm-grid',label:'Almacenes',title:'4. Efectividad por Almacén'},
+      {el:'#tbl-grupos',label:'Grupos',title:'5. Top Grupos de Materiales',wrap:true},
+      {el:'#tbl-codigos',label:'Códigos',title:'6. Top Códigos — Mayor Diferencia en Valor',wrap:true},
+      {el:'#tbl-lotes',label:'Lotes',title:'7. Top Códigos con Lote',wrap:true},
+      {el:'#top-dif-grid',label:'Top Dif.',title:'8. Top Diferencias Netas'},
+      {el:'#insights-grid',label:'Insights',title:'9. Insights Estratégicos'},
+      {el:'#concentracion-grid',label:'Concentración',title:'10. Análisis de Concentración y Riesgo'},
+      {el:'#tbl-pareto',label:'Pareto',title:'Tabla Pareto',wrap:true},
+      {el:'#plan-wrap',label:'Plan',title:'11. Plan de Acción y Mejora'},
+      {el:'#comp-section',label:'Compromiso',title:'12. Carta de Compromiso Gerencial'},
+    ];
+    let currentY=margin;let pageNum=1;
+    function addPageNumber(){
+      pdf.setFontSize(7);pdf.setTextColor(150,150,150);
+      pdf.text(`${centro} · Informe Ejecutivo de Inventario`,margin,pageH-6);
+      pdf.text(`Pág. ${pageNum}`,pageW-margin,pageH-6,{align:'right'});
+    }
+    function newPage(){addPageNumber();pdf.addPage('letter','portrait');pageNum++;currentY=margin;}
+    function addSectionTitle(title){
+      if(currentY>pageH-40)newPage();
+      pdf.setFillColor(13,27,42);pdf.rect(margin,currentY,usableW,7,'F');
+      pdf.setFontSize(9);pdf.setTextColor(201,146,42);pdf.setFont(undefined,'bold');
+      pdf.text(title,margin+3,currentY+5);
+      pdf.setFont(undefined,'normal');pdf.setTextColor(26,26,26);
+      currentY+=10;
+    }
+    for(let i=0;i<sections.length;i++){
+      const sec=sections[i];
+      let el=document.querySelector(sec.el);
+      if(!el)continue;
+      let target=el;let wrapper=null;
+      if(sec.wrap){
+        wrapper=document.createElement('div');
+        wrapper.style.cssText='background:#fff;border-radius:10px;overflow:hidden;padding:0;';
+        el.parentNode.insertBefore(wrapper,el);wrapper.appendChild(el);target=wrapper;
+      }
+      if(sec.title)addSectionTitle(sec.title);
+      try{
+        const canvas=await html2canvas(target,{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff',windowWidth:document.documentElement.scrollWidth});
+        const imgData=canvas.toDataURL('image/jpeg',0.92);
+        const imgW=usableW;const imgH=(canvas.height/canvas.width)*imgW;
+        if(imgH>pageH-currentY-margin&&currentY>margin+20)newPage();
+        const maxH=pageH-currentY-margin;
+        if(imgH>maxH){
+          const scaleF=maxH/imgH;const fW=imgW*scaleF;const fH=imgH*scaleF;
+          pdf.addImage(imgData,'JPEG',margin+(usableW-fW)/2,currentY,fW,fH);currentY+=fH+6;
+        }else{pdf.addImage(imgData,'JPEG',margin,currentY,imgW,imgH);currentY+=imgH+6;}
+      }catch(e){console.warn('Error rendering',sec.label,e);}
+      if(wrapper){wrapper.parentNode.insertBefore(el,wrapper);wrapper.parentNode.removeChild(wrapper);}
+    }
+    addPageNumber();
+    pdf.save(`Informe_Inventario_${centro}.pdf`);
+  }catch(err){console.error('Error PDF:',err);alert('Error al generar el PDF. Intente de nuevo.');}
+  finally{loading.classList.remove('active');}
+}
+</script>
+</body>
+</html>
